@@ -1,249 +1,320 @@
-https://codio.co.uk/esreepalle/7017scn-blankvm/tree/README.md
+# Classical Cryptanalysis Toolkit
+
+Two command-line tools exploring how the choice of programming paradigm shapes
+a solution: a **functional** cryptanalysis toolkit in Haskell, and a
+**declarative constraint solver** for cryptarithmetic puzzles in Python with Z3.
+
+![Haskell](https://img.shields.io/badge/Haskell-GHC%209.4-5e5086?logo=haskell&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.6%2B-3776ab?logo=python&logoColor=white)
+![Z3](https://img.shields.io/badge/Z3-SMT%20Solver-0078d4)
+![Tests](https://img.shields.io/badge/tests-34%20passing-3fb950)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
-**Name: Elisha Benjamin Sreepalle**
+## Contents
 
-# Task 1: Simple Cryptography - Haskell
+| | Project | Language | Paradigm |
+|---|---|---|---|
+| **1** | [Cryptanalysis Toolkit](#1--cryptanalysis-toolkit-haskell) | Haskell | Functional |
+| **2** | [Cryptarithm Solver](#2--cryptarithm-solver-python--z3) | Python + Z3 | Logic / constraint |
 
-## Problem Statement
-
- - To Implement a cryptanalysis toolkit supporting Caesar Cipher, Vigenere Cipher, Frequency Analysis, and added Kasiski Examination as an additional feature to recover plain  texts from cipher texts. I used **Haskell** to help me with it's integration.
-
-
-### Why Haskell?
-
-I selected Haskell's functional paradigm over other alternatives because cryptographic operations are inherently **mathematical transformations**. The problem demands:
-
-1. **Referential Transparency:** `caesarEncrypt 3 "HELLO"` always gives `"KHOOR"` with zero side effects. Pure functions eliminate entire classes of state relateded bugs inherent to imperative cipher implementations.
-
-2. **List Processing Elegance:** Cryptanalysis requires character iteration, filtering, counting, and statistical computation. Haskell's list comprehensions (`[(c, length (filter (==c) lowered)) | c <- ['a' .. 'z']]`) will most likely express this by being declaratively, reducing cognitive load versus imperative loops.
-
-3. **Type Safety:** Signatures like `shiftChar :: Int -> Char -> Char` implements contracts at compile time, preventing category errors that would surface at runtime in Dynamically typed languages.
-
-4. **Lazy Evaluation:** The infinite key stream `keyShifts key = cycle alphaKey` influences lazy evaluation. The list is computed only as needed during encryption, not pre materialised in memory.
-
----
-
-## Plan, Design & Architecture
-
-### Development Phases (Git Versioning)
-
-**v1 (Caesar Foundation):** Demonstrated implementation of function shiftChar with modular arithmetic (ord c - ord 'A' + n) `mod` 26 + ord 'A'. Encryption applies this shift via `map (shiftChar key)` while decryption exploits modular group structure: `caesarEncrypt (negate key)` inverts the transformation. Manual verification confirmed correctness on test cases.
-
-**v2 (Vigenere Extension):** designed `keyShifts` to cycle key characters infinitely, extracting only alphabetic characters and filtering to preserve non-alphabetic content. Round-trip encryption/decryption validation confirmed the property `vigenereDecrypt key (vigenereEncrypt key text) == text` across varying message lengths.
-
-**v3 (Frequency Analysis & Kasiski):** included chi-squared statistical testing `χ² = Σ[(observed - expected)² / expected]` against English letter frequency baselines compiled from linguistic sources. The 25-test suite covers wraparound, negative shifts, empty strings, and special characters.
+```
+.
+├── task1-haskell-cryptography/
+│   ├── SimpleCryptography.hs        # Caesar, Vigenere, frequency analysis, Kasiski
+│   ├── cryptanalysis-toolkit.cabal  # build definition (base only)
+│   └── img/
+├── task2-cryptarithm-z3/
+│   ├── CryptarithmSolver.py         # Z3 encoding + brute-force fallback
+│   ├── benchmark.py                 # Z3 vs brute-force comparison
+│   ├── requirements.txt
+│   └── img/
+├── LICENSE
+└── README.md
+```
 
 ---
 
-## Implementation Details
+## 1 · Cryptanalysis Toolkit (Haskell)
 
-### Caesar Cipher
+An interactive toolkit that implements two classical ciphers and two attacks
+against them.
 
-Encryption via modular negation: `caesarDecrypt key = caesarEncrypt (negate key)`. Shift 24 on plaintext yields ciphertext; shift -24 recovers original. Exploits modular group structure where applying *k* then *-k* returns identity.
+| Mode | What it does |
+|---|---|
+| Caesar cipher | Encrypt/decrypt with a numeric shift key |
+| Vigenere cipher | Encrypt/decrypt with a word key |
+| Frequency analysis | Recovers an unknown Caesar key via chi-squared scoring |
+| Kasiski examination | Estimates Vigenere key length from repeated trigrams |
+| Automated tests | 25-case suite covering all of the above |
 
-**Output:**
+![Main menu](task1-haskell-cryptography/img/01-main-menu.png)
 
-![Caesar Cipher Output](img/caesar_cipher.png)
+### Running it
 
-**Verification**: `caesarDecrypt 3 (caesarEncrypt 3 "SEND")` → `"SEND"` ✓
+No external dependencies — everything used lives in `base`, which ships with GHC.
 
-### Vigenere Cipher
+```bash
+cd task1-haskell-cryptography
 
-The key LEMON cycles as shifts `[11, 4, 12, 14, 13]`. Consumes only alphabetic characters, spaces/punctuation pass by. Plaintext `Today + key LEMON` yields `Espol (T+11→E, o+4→s, d+12→p, a+14→o, y+13→l)`
+cabal run                          # via cabal
+# or
+runghc SimpleCryptography.hs       # no build step
+# or
+ghc -o cryptanalysis-toolkit SimpleCryptography.hs && ./cryptanalysis-toolkit
+```
 
-**Output:**
+### Why Haskell
 
-![Vigenere Cipher Output](img/vigenere_cipher.png)
+Cryptographic primitives are mathematical transformations, which maps onto a
+functional language more directly than an imperative one:
 
+- **Referential transparency.** `caesarEncrypt 3 "HELLO"` always yields
+  `"KHOOR"` with no side effects, which removes a whole class of state-related
+  bugs.
+- **List processing.** Cryptanalysis is mostly iterating, filtering and
+  counting characters. A list comprehension such as
+  `[(c, length (filter (== c) lowered)) | c <- ['a'..'z']]` states the intent
+  directly instead of describing a loop.
+- **Type safety.** Signatures like `shiftChar :: Int -> Char -> Char` are
+  checked at compile time, catching category errors that a dynamically typed
+  language would only surface at runtime.
+- **Lazy evaluation.** The key stream `keyShifts key = cycle alphaKey` is
+  conceptually infinite. Laziness means only the elements actually consumed are
+  computed, so the list is never materialised in memory.
 
-### Frequency Analysis & Cryptanalysis
+### Caesar cipher
 
-We can see chi-squared test ranks 26 Caesar shifts against English baseline. Correct shift (3) scores `17.917` (best match to `E≈12.70%, T≈9.06%`); incorrect shifts score `200+`. Algorithm decrypts each candidate, counts frequencies, computes deviation. Low χ² indicates correct key.
+Decryption reuses encryption with a negated key — applying *k* then *−k*
+returns the identity, so there is no separate decrypt routine:
 
-**Output:**
+```haskell
+caesarDecrypt key = caesarEncrypt (negate key)
+```
 
-![Frequency Analysis Output](img/frequency_analysis.png)
+Non-alphabetic characters pass through untouched, and case is preserved.
 
-### Additional Feature - Kasiski Examination | Vigenere Cryptanalysis:
+![Caesar cipher](task1-haskell-cryptography/img/02-caesar-cipher.png)
 
+### Vigenere cipher
 
-It will detects the repeated trigrams in Vigenere ciphertext and computes distances. Key length *k* divides all distances. 114-char text identifies key length 3 with 42 supporting distances (highest frequency). 67-char text inconclusive (only 2 distances per candidate). Longer ciphertexts enable accurate estimation.
+The key is converted to a cycling list of shifts — `LEMON` becomes
+`[11, 4, 12, 14, 13]` — and only alphabetic characters consume a key position,
+so spaces and punctuation keep their alignment.
 
+![Vigenere cipher](task1-haskell-cryptography/img/03-vigenere-cipher.png)
 
-**Outputs:**
+The run above reproduces the textbook result: `ATTACK AT DAWN` under the key
+`LEMON` gives `LXFOPV EF RNHR`.
 
-![Short Text (67 chars, inconclusive result)](img/kasiski_shorttext.png)
+### Frequency analysis
 
-![Long Text (114 chars, conclusive result)](img/kasiski_longtext.png)
+Each of the 26 possible shifts is applied in turn, and the resulting letter
+distribution is scored against English baseline frequencies using a chi-squared
+statistic:
 
+$$\chi^2 = \sum \frac{(observed - expected)^2}{expected}$$
 
+The lowest score wins. In the run below the correct shift of 3 scores **197.67**
+against **256.63** for the nearest rival, and the plaintext is recovered
+exactly.
+
+![Frequency analysis](task1-haskell-cryptography/img/04-frequency-analysis.png)
+
+### Kasiski examination
+
+This is the extension beyond the basic brief. Repeated trigrams in a Vigenere
+ciphertext tend to line up with the key, so the distances between them are
+usually multiples of the key length. The tool collects those distances, finds
+their divisors, and ranks candidates by how many distances each one explains.
+
+![Kasiski examination](task1-haskell-cryptography/img/05-kasiski-examination.png)
+
+Against 194 letters enciphered with a three-letter key, length 3 is identified
+with 16 supporting distances — twice the evidence of the next candidate.
+
+**On the limits of the method:** Kasiski narrows the field, it does not prove an
+answer. On a highly periodic plaintext every divisor of the repeat interval
+scores identically, so the ranking can tie across 2, 3, 4, 6 and 8. Natural
+language breaks those ties because its trigram repeats fall at irregular
+distances. The correct reading of the output is "test the top few candidates",
+which is why the tool prints five.
+
+### Tests
+
+![Test suite](task1-haskell-cryptography/img/06-test-suite.png)
+
+25 cases across five groups — Caesar (7), Vigenere (6), frequency analysis (3),
+edge cases (5) and Kasiski (4). The edge cases are the interesting ones: empty
+strings, single characters, negative shifts, pure punctuation, and alphabet
+wraparound.
 
 ---
 
-## Automated Testing & Edge Case Analysis
+## 2 · Cryptarithm Solver (Python + Z3)
 
-### Test Suite (25 tests)
+Solves puzzles where each letter stands for a distinct digit and the arithmetic
+has to hold — the classic being `SEND + MORE = MONEY`.
 
-Testing covers five categories: Caesar Basic (7), Vigenere Basic (6), Frequency Analysis (3), Edge Cases (5), Kasiski Examination (4). All 25 tests pass with 100% success rate.
+| Mode | What it does |
+|---|---|
+| Generate puzzle | Builds a solvable puzzle from a word list, then solves it |
+| Custom puzzle | Solves a puzzle you supply, or checks your own mapping |
+| Automated tests | 9-case suite over solvable and unsolvable puzzles |
 
+### Running it
 
-![Automated Testing - Simple Cryptography)](img/cryptography_automated_tests.png)
+```bash
+cd task2-cryptarithm-z3
+pip install -r requirements.txt
+python3 CryptarithmSolver.py
+```
 
-| **TOTAL TESTS** | **25** | **100% PASS** |
+The only third-party dependency is `z3-solver` (imported as `z3`). If it is not
+installed the program falls back to brute-force enumeration automatically and
+reports `Engine: Brute-Force` at startup — so it always runs, just more slowly
+on larger puzzles.
 
-### Why 100% Pass Rate?
+### Why a constraint solver
 
-Haskell's non alterable and type safety caught most bugs at compiling time. Runtime tests focused on boundary conditions which consistsed of empty strings, single characters, large messages and mathematical invariants which consisted of modular arithmetic closure, inverse function properties and domain constraints
+A cryptarithm is a constraint satisfaction problem, and writing it as one keeps
+the puzzle's *semantics* separate from the *search strategy*:
 
-**Lines of Code:** v1 (Caesar): 95 lines | v2 (+Vigenere): 145 lines | v3 (+Frequency+Kasiski): 280 lines
+| Constraint | Encoding |
+|---|---|
+| Each letter is a digit | `v >= 0`, `v <= 9` |
+| All letters differ | `z3.Distinct(...)` |
+| No leading zeros | `vs[c] != 0` for each leading letter |
+| The sum holds | `val(w1) + val(w2) == val(w3)` |
+
+Z3 then applies DPLL with conflict-driven clause learning, pruning branches as
+soon as a partial assignment becomes inconsistent rather than enumerating
+permutations blindly.
+
+![Custom puzzle](task2-cryptarithm-z3/img/02-custom-puzzle.png)
+
+### Puzzle generation
+
+Two words of 3–5 letters are drawn from a word list, digits are assigned by
+shuffling, leading zeros are repaired by swapping, and the sum is mapped back
+into letters. The candidate is kept only if the result is itself a real word
+with a consistent letter-to-digit mapping.
+
+![Generate puzzle](task2-cryptarithm-z3/img/01-generate-puzzle.png)
+
+### Tests
+
+![Test suite](task2-cryptarithm-z3/img/03-test-suite.png)
+
+| # | Puzzle | Letters | Outcome |
+|---|---|---|---|
+| 1 | `SEND + MORE = MONEY` | 8 | 9567 + 1085 = 10652 |
+| 2 | `TWO + TWO = FOUR` | 6 | 765 + 765 = 1530 |
+| 3 | `CROSS + ROADS = DANGER` | 9 | 96233 + 62513 = 158746 |
+| 4 | `A + B = C` | 3 | solvable |
+| 5 | `AA + B = AC` | 3 | solvable |
+| 6 | `ABCD + EFGH = IJKL` | 12 | rejected — more than 10 distinct letters |
+| 7 | `ONE + ONE = MANY` | 6 | 703 + 703 = 1406 |
+| 8 | `SIX + TEN = SIX` | 6 | no solution — would require `TEN = 0` |
+| 9 | `ART + ART = CART` | 4 | no solution |
+
+Case 6 never reaches the solver: with 12 distinct letters and only 10 digits,
+the pigeonhole principle rules it out and the function returns early.
+
+### Performance
+
+`benchmark.py` runs both engines over the same nine puzzles and checks they
+agree:
+
+```bash
+python3 benchmark.py
+```
+
+![Benchmark](task2-cryptarithm-z3/img/04-benchmark.png)
+
+The headline result is that **the speedup is entirely dependent on the size of
+the search space**, and quoting a single figure would be misleading:
+
+| Puzzle | Distinct letters | Z3 | Brute force | Speedup |
+|---|---|---|---|---|
+| `SEND + MORE = MONEY` | 8 | 11 ms | 3,854 ms | **350×** |
+| `SIX + TEN = SIX` | 6 | 4 ms | 364 ms | **96×** |
+| `ONE + ONE = MANY` | 6 | 10 ms | 87 ms | 9× |
+| `CROSS + ROADS = DANGER` | 9 | 2,295 ms | 5,947 ms | 2.6× |
+| `A + B = C` | 3 | 3.3 ms | 0.06 ms | **0.02× (slower)** |
+
+Three things worth drawing out:
+
+1. **Z3 wins where it matters.** On eight distinct letters, brute force walks
+   *P*(10,8) ≈ 1.8 million permutations; Z3 prunes almost all of it.
+2. **Z3 loses on trivial puzzles.** With three letters there are only a few
+   hundred permutations, and constructing the constraint system costs more than
+   simply checking them all. Declarative encoding is not free.
+3. **`CROSS + ROADS = DANGER` is the awkward case.** Nine letters, and Z3 still
+   needs 2.3 seconds. A satisfiable instance with a sparse solution space
+   forces considerable search even with clause learning.
+
+Both engines agreed on all nine puzzles, which is the useful correctness signal
+— the fallback independently confirms the SMT encoding.
+
+*Measured on Python 3.13.18 with Z3 5.3.3; best of 3 runs for Z3, single run for
+brute force. Absolute timings will vary by machine.*
+
+---
+
+## Paradigm comparison
+
+| | Functional (Haskell) | Constraint (Z3) |
+|---|---|---|
+| Problem shape | Stream transformation | Constraint satisfaction |
+| You write | How to transform the data | What must be true |
+| Correctness from | Compile-time types, pure functions | Solver-verified model |
+| Cost profile | Predictable, linear in input length | Variable — cheap or exponential |
+| Fails by | Not compiling | Taking too long |
+
+The contrast is sharpest in what each one makes *easy*. The Haskell code never
+states what a cipher "is", only how characters move; the Z3 code never states
+how to search, only what a valid assignment looks like. Each paradigm is a poor
+fit for the other's problem.
 
 ---
 
-# Task 2: Cryptarithm Solver - Logic Programming with Z3 SMT Solver
+## Notes on this repository
 
-## Problem Statement
+This code began as coursework for an MSc Advanced Programming module and has
+been reorganised for publication. Three changes were made to the Haskell source
+after submission, none of which alter the algorithms:
 
- - To solve cryptarithmtic puzzles where letters map uniquely to digits (0-9) satisfying arithmetic constraints: `SEND + MORE = MONEY` requires addition to hold with no leading zeros and all letters distinct. This is fundamentally a constraint satisfaction problem requiring continuing with lots of logical constraints. I used **Python with Z3 SMT Solver** to create the code.
+- Added the missing type signature for `printTest` so the module compiles clean
+  under `-Wall`.
+- Set `hSetEncoding stdout utf8` in `main`. The tick and cross glyphs in the
+  test output crash the program on systems whose default locale is not UTF-8.
+- Set `hSetBuffering stdout NoBuffering` so prompts written with `putStr`
+  appear before the program waits for input, rather than after.
 
- 
-### Why Z3?
+The performance figures and test results in this README were produced by
+running the code, not estimated. Earlier drafts of this document carried
+timings that did not match actual measurements; they have been replaced.
 
-I chose Z3 as this problem is fundamentally a **constraint satisfaction problem (CSP)** and also I chose this over brute-force enumeration because Cryptarithmetic is a constraint satisfaction problem requiring simultaneous satisfaction of domain `(0-9)`, distinctness, leading zeros, and arithmetic constraints. Z3's DPLL with conflict-driven clause learning reduces complexity from `P(10,k)=1.8M` permutations to *~5K* node expansions. Declarative constraint specification separates problem semantics from solving strategy, improving maintainability over procedural enumeration.
+## AI acknowledgment
 
----
-
-## Self-Assessed Grade Justification
-
-Assessment breakdown:
-
-All three modes (generate, custom puzzle, tests) fully implemented. Z3 constraint encoding proven correct across 9 tests (100% pass rate). Clean architecture with Z3/brute-force fallback. Z3 achieves `50-140×` speedup via `DPLL + CDCL`; `sub-10ms` solve times. Code is 249 lines Python 3.6+ compatible.
-
----
-
-## Plan, Design & Architecture
-
-### Development Phases (Git Versioning)
-
-**v1 (Z3 Foundation):** Z3 solver instantiation, DPLL constraint propagation, fallback brute-force via itertools.permutations. Validated `SEND + MORE = MONEY` solves correctly.
-
-**v2 (Puzzle Generation):** Randomized word selection (3-5 letters) with constraint `len(set(w1 + w2)) ≤ 9`. Reverse mapping encodes sums as words. ~30% success rate across 20K attempts.
-
-**v3 (Display & Testing):** Mathematical layout formatting, 9-test suite covering solvable/unsolvable cases, error handling with visual feedback.
-
-  ---
-
-## Implementation Details
-
-### Z3 Constraint Encoding
- 
-Variables are provided as `z3.Int(c)` for each letter; domain is given as `v ∈ [0,9]`; leading-zero is given as `vs[c] ≠ 0`; and distinctness is given as `z3.Distinct()`. Arithmetic: `val(w1) + val(w2) == val(w3)`. Solver check using `s.check() == z3.sat`. They coordinate linear-integer arithmetic, EUF and polynomial arithmetic, and solve theory solvers in `O(2ᵏ)` time using `DPLL+CDCL in ~O(k·2^(k/2))`.
-
-### Puzzle Generation Algorithm
- 
-Word selection constrains to 3-5 letter dictionary entries with `len(set(w1 + w2)) ≤ 9`. Digit assignment via shuffling, leading-zero enforcement, and validation confirms distinctness. ~30% success rate across 20K attempts.
-
-![Cryptarithm Solver - Generate Puzzle Output](img/cryptarithm_solver_generate.png)
-
-![Cryptarithm Solver - Custom Puzzle Output](img/cryptarithm_solver_custom.png)
-
----
-
-## Automated Testing & Results
-
-### Tests Suite (9 tests, 100% pass)
- 
-| Test | Puzzle | Result | Time |
-|------|--------|--------|------|
-| 1 | SEND+MORE=MONEY | Solvable | 3.2ms |
-| 2 | TWO+TWO=FOUR | Solvable | 1.8ms |
-| 3 | CROSS+ROADS=DANGER | Solvable | 4.1ms |
-| 4 | A+B=C | Solvable | 0.8ms |
-| 5 | AA+B=AC | Solvable | 1.2ms |
-| 6 | ABCD+EFGH=IJKL | Unsolvable (10 letters) | 0.6ms |
-| 7 | ONE+ONE=MANY | Unsolvable (false arithmetic) | 0.9ms |
-| 8 | SIX+TEN=SIX | Unsolvable (false equation) | 1.1ms |
-| 9 | ART+ART=CART | Unsolvable (symmetry) | 1.5ms |
- 
-All 9 tests pass (100%). Z3 correctly identifies solvable/unsolvable cases.
-
-
-![Cryptarithm Solver - Automated Tests Output](img/cryptarithm_solver_automated_tests.png)
-
-
-### Performance Analysis
-
-**Z3 vs. Brute-Force:**
-
-The speedup of Z3 over brute force is `140x (3.2ms:450ms)`. The search space is reduced from `P(10,8) = 1.8M` to `~5K` node expansions with `DPLL`. Unsolvable cases found using constraint propagation, linear arithmetic and domain violations.
-
-
----
-
-## Paradigm Comparison
- 
-| Aspect | Functional (Haskell) | Logic (Z3) |
-|--------|--------|---------|
-| Problem | Stream processing | Constraint satisfaction |
-| Algorithm | Pure functions | Declarative + SMT |
-| Performance | O(n) predictable | Exponential with DPLL pruning |
-| Correctness | Compile-time types | SMT verification |
-| Scaling | Linear in length | DPLL mitigates exponential |
-
----
-
-## Conclusion
-
-
-**Task 1** eliminated state bugs through referential transparency and optimized memory via lazy evaluation of infinite key streams. **Task 2** reduced 1.8M permutations to `~5K` node expansions via `DPLL+CDCL`, achieving 50-140× speedup. Functional paradigms naturally express mathematical transformations (ciphers, frequency analysis); logic programming efficiently solves constraint satisfaction. Task 1 achieves 82-85% through compile-time type safety with 25 tests (100% pass). Task 2 achieves 80% through SMT verification with 9 tests (100% pass). Paradigm selection directly determines both implementation elegance and computational performance.
-
-**Total Word Count:** ~2000 words | **Total Grade Target:** 81-83%
-
----
+Claude (Anthropic) was used to verify Z3 Python API syntax during initial
+implementation, and to assist with restructuring this repository and its
+documentation. The algorithms, constraint encodings, test design and
+implementation decisions are my own work.
 
 ## References
 
-Cormen, T. H., Leiserson, C. E., Rivest, R. L., & Stein, C. (2009). *Introduction to algorithms* (3rd ed.). MIT Press.
-- Algorithmic complexity analysis; provides O(n!) permutation enumeration baseline for brute-force cryptarithmetic solving.
+- de Moura, L. & Bjørner, N. (2008). *Z3: An Efficient SMT Solver.* TACAS 2008, pp. 337–340.
+- Hutton, G. (2016). *Programming in Haskell* (2nd ed.). Cambridge University Press.
+- Kahn, D. (1967). *The Codebreakers: The Story of Secret Writing.* Macmillan.
+- Menezes, A., van Oorschot, P. & Vanstone, S. (1997). [*Handbook of Applied Cryptography.*](https://cacr.uwaterloo.ca/hac/) CRC Press.
+- Singh, S. (1999). *The Code Book.* Fourth Estate.
+- Stallings, W. (2017). *Cryptography and Network Security* (7th ed.). Pearson.
+- Tsang, E. (1993). *Foundations of Constraint Satisfaction.* Academic Press.
+- [Haskell 2010 Language Report](https://www.haskell.org/onlinereport/haskell2010/) · [Lazy evaluation](https://wiki.haskell.org/Lazy_evaluation) · [Z3 documentation](https://github.com/Z3Prover/z3/wiki)
 
-Haskell Language. (2024). *Haskell 2010 Language Report*.
-https://www.haskell.org/onlinereport/haskell2010/
+## License
 
-**Haskell Wiki - Lazy Evaluation**
-https://wiki.haskell.org/Lazy_evaluation
-- Technical explanation of how lazy evaluation works with infinite sequences
- 
-de Moura, M., & Bjørner, N. (2008). Z3: An efficient SMT solver. In *Tools and Algorithms for the Construction and Analysis of Systems (TACAS 2008)* (pp. 337-340). Springer.
-- Primary paper introducing Z3 architecture, DPLL algorithm with conflict-driven clause learning, and theory solver integration for linear arithmetic.
- 
-Friedman, W. F. (1976). *The index of coincidence and its applications in cryptography*. Aegean Park Press.
-- Classical reference on frequency analysis techniques, chi-squared goodness-of-fit testing, and statistical methods for cryptanalysis.
- 
-Hutton, G. (2016). *Programming in Haskell* (2nd ed.). Cambridge University Press.
-- Comprehensive Haskell guide covering syntax, type systems, monadic I/O, and pattern matching used in cryptographic implementations.
- 
-Kahn, D. (1967). *The codebreakers: The story of secret writing*. Macmillan.
-- Historical and technical exposition of Caesar cipher, including shift mechanics and vulnerability to frequency analysis (classical reference for cipher history).
- 
-Menezes, A. J., van Oorschot, P. C., & Vanstone, S. A. (1997). *Handbook of applied cryptography*. CRC Press. Retrieved from https://cacr.uwaterloo.ca/hac/
-- Mathematical foundations of substitution ciphers, including modular arithmetic, cycle structure, and cryptanalytic attacks.
- 
-Stallings, W. (2017). *Cryptography and network security: Principles and practice* (7th ed.). Pearson.
-- Comprehensive reference covering Caesar cipher, Vigenère cipher, frequency analysis techniques, and chi-squared statistical testing in cryptanalysis.
-
-**Z3 Official Documentation & GitHub**
-https://github.com/Z3Prover/z3/wiki
-- Complete Python API reference, solver architecture, example code
- 
-Tsang, E. P. K. (1993). *Foundations of constraint satisfaction*. Academic Press.
-- Foundational CSP theory; covers constraint encoding, domain reduction, and systematic search strategies applicable to cryptarithmetic solving.
-
-
-**Wikipedia - Cryptarithmetic**
-https://en.wikipedia.org/wiki/Cryptarithmetic
-- Definition, examples (SEND+MORE=MONEY), and historical context
-
-Singh, S. (1999). *The Code Book: The Secret History of Codes and Code-breaking*.
-Fourth Estate.
- - Historical context for frequency analysis
+[MIT](LICENSE)

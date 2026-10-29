@@ -4,6 +4,7 @@ import Data.Char (isUpper, isLower, isAlpha, ord, chr, toLower)
 import Data.List (sortBy)
 import Data.Ord (comparing)
 import Data.Maybe (fromMaybe)
+import System.IO (hSetEncoding, hSetBuffering, stdout, utf8, BufferMode(NoBuffering))
 
 shiftChar :: Int -> Char -> Char
 shiftChar n c
@@ -178,6 +179,8 @@ modeKasiski = do
   putStrLn "\nTip: Most frequent key length is likely correct, or test top 3 candidates."
 
 data TestResult = TR String Bool String
+
+printTest :: TestResult -> IO ()
 printTest (TR name result msg) = putStrLn $ (if result then "✓ PASS" else "✗ FAIL") ++ " | " ++ name ++ " | " ++ msg
 
 runTests :: [TestResult]
@@ -241,4 +244,11 @@ mainLoop = do
     _ -> putStrLn "\n✗ Invalid choice. Please enter 0, 1, 2, 3, 4, or 5." >> putStr "Press Enter to continue..." >> getLine >> mainLoop
 
 main :: IO ()
-main = mainLoop
+main = do
+  -- Tick/cross/warning glyphs need UTF-8; without this the program crashes
+  -- on systems whose default locale is not UTF-8.
+  hSetEncoding stdout utf8
+  -- Prompts are written with putStr (no newline), so disable line buffering
+  -- to make them appear before the program waits for input.
+  hSetBuffering stdout NoBuffering
+  mainLoop
