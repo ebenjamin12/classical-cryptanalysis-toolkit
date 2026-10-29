@@ -4,17 +4,12 @@ https://codio.co.uk/esreepalle/7017scn-blankvm/tree/README.md
 
 **Name: Elisha Benjamin Sreepalle**
 
-**Student ID: 17384850**
-
-
 # Task 1: Simple Cryptography - Haskell
 
 ## Problem Statement
 
  - To Implement a cryptanalysis toolkit supporting Caesar Cipher, Vigenere Cipher, Frequency Analysis, and added Kasiski Examination as an additional feature to recover plain  texts from cipher texts. I used **Haskell** to help me with it's integration.
 
-
- - **Self-Assessed Grade:** 82-85%
 
 ### Why Haskell?
 
@@ -27,15 +22,6 @@ I selected Haskell's functional paradigm over other alternatives because cryptog
 3. **Type Safety:** Signatures like `shiftChar :: Int -> Char -> Char` implements contracts at compile time, preventing category errors that would surface at runtime in Dynamically typed languages.
 
 4. **Lazy Evaluation:** The infinite key stream `keyShifts key = cycle alphaKey` influences lazy evaluation. The list is computed only as needed during encryption, not pre materialised in memory.
-
----
-
-
-## Self-Assessed Grade Justification
-
-**Grade: 82-85%**
-
-This grade is based on the completeness of all five modes (Caesar, Vigenere, Frequency Analysis, Kasiski, Automated Tests) across 280 lines of idiomatic pattern matching Haskell, and pure functional design. The 25 test suite is 100% successful for edge case tests (empty strings, wraparound, negative shifts) and Kasiski-specific patterns. The Kasiski Examination implementation goes beyond minimum requirements and use of repeated n-gram divisor analysis to estimate Vigenere key lengths is a sign of mastery of both functional design and cryptanalytic theory. There are no imperative workarounds in pure functional architecture throughout.
 
 ---
 
@@ -121,8 +107,6 @@ Haskell's non alterable and type safety caught most bugs at compiling time. Runt
 
  - To solve cryptarithmtic puzzles where letters map uniquely to digits (0-9) satisfying arithmetic constraints: `SEND + MORE = MONEY` requires addition to hold with no leading zeros and all letters distinct. This is fundamentally a constraint satisfaction problem requiring continuing with lots of logical constraints. I used **Python with Z3 SMT Solver** to create the code.
 
-
- - **Self-Assessed Grade:** 80%
  
 ### Why Z3?
 
@@ -131,8 +115,6 @@ I chose Z3 as this problem is fundamentally a **constraint satisfaction problem 
 ---
 
 ## Self-Assessed Grade Justification
-
-**Grade: 80%**
 
 Assessment breakdown:
 
