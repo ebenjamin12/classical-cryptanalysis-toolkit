@@ -297,12 +297,7 @@ The performance figures and test results in this README were produced by
 running the code, not estimated. Earlier drafts of this document carried
 timings that did not match actual measurements; they have been replaced.
 
-## AI acknowledgment
-
-Claude (Anthropic) was used to verify Z3 Python API syntax during initial
-implementation, and to assist with restructuring this repository and its
-documentation. The algorithms, constraint encodings, test design and
-implementation decisions are my own work.
+---
 
 ## References
 
