@@ -9,7 +9,7 @@ a solution: a **functional** cryptanalysis toolkit in Haskell, and a
 ![Z3](https://img.shields.io/badge/Z3-SMT%20Solver-0078d4)
 ![Tests](https://img.shields.io/badge/tests-34%20passing-3fb950)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-
+[![Report](https://img.shields.io/badge/Report-PDF-b30b00?logo=adobeacrobatreader&logoColor=white)](docs/Classical-Cryptanalysis-Toolkit-Report.pdf)
 ---
 
 ## Contents
@@ -30,6 +30,8 @@ a solution: a **functional** cryptanalysis toolkit in Haskell, and a
 │   ├── benchmark.py                 # Z3 vs brute-force comparison
 │   ├── requirements.txt
 │   └── img/
+├── docs/
+│   └── Classical-Cryptanalysis-Toolkit-Report.pdf
 ├── LICENSE
 └── README.md
 ```
